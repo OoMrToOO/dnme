@@ -1,0 +1,16 @@
+create extension if not exists pgcrypto;
+create table if not exists profiles(id uuid primary key default gen_random_uuid(), name text not null, created_at timestamptz default now());
+create table if not exists sources(id uuid primary key default gen_random_uuid(), profile_id uuid references profiles(id) on delete cascade, type text not null check(type in('m3u','stalker')), name text not null, config jsonb not null, created_at timestamptz default now(), updated_at timestamptz default now());
+create table if not exists channels(id uuid primary key default gen_random_uuid(), source_id uuid references sources(id) on delete cascade, external_id text, name text not null, group_name text, logo_url text, stream_url text, epg_id text, created_at timestamptz default now());
+create table if not exists movies(id uuid primary key default gen_random_uuid(), source_id uuid references sources(id) on delete cascade, external_id text, title text not null, poster_url text, backdrop_url text, stream_url text, year int, overview text, created_at timestamptz default now());
+create table if not exists series(id uuid primary key default gen_random_uuid(), source_id uuid references sources(id) on delete cascade, external_id text, title text not null, poster_url text, backdrop_url text, created_at timestamptz default now());
+create table if not exists episodes(id uuid primary key default gen_random_uuid(), series_id uuid references series(id) on delete cascade, external_id text, season int, episode int, title text, stream_url text, created_at timestamptz default now());
+create table if not exists epg_programs(id uuid primary key default gen_random_uuid(), source_id uuid references sources(id) on delete cascade, channel_epg_id text, title text not null, description text, start_at timestamptz, end_at timestamptz, category text);
+create table if not exists favorites(profile_id uuid references profiles(id) on delete cascade, content_type text not null, content_id uuid not null, created_at timestamptz default now(), primary key(profile_id,content_type,content_id));
+create table if not exists watch_progress(profile_id uuid references profiles(id) on delete cascade, content_type text not null, content_id uuid not null, position_seconds bigint default 0, duration_seconds bigint default 0, updated_at timestamptz default now(), primary key(profile_id,content_type,content_id));
+insert into profiles(name) select 'Default' where not exists(select 1 from profiles);
+create index if not exists idx_channels_group on channels(group_name);
+create index if not exists idx_channels_epg on channels(epg_id);
+create index if not exists idx_movies_title on movies(title);
+create index if not exists idx_series_title on series(title);
+create index if not exists idx_epg_channel_time on epg_programs(channel_epg_id,start_at,end_at);
